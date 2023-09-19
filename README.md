@@ -4,3 +4,15 @@ This repository contains examples of the code used to process, analyze, and visu
 
 ## Required Software
 Below is a summary of the software packages used to analyze the data presented in Layden et al. 2023.
+```
+Command-line:       R-based:
+  BEDtools            ComplexHeatmap
+  bowtie2             ClusterProfileR
+  deepTools           DEseq2
+  FastX-Toolkit       DiffBind   
+  Genrich
+  HOMER
+  SAMtools 
+  Trimmomatic                         
+  TOBIAS        
+```      
