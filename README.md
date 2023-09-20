@@ -8,11 +8,13 @@ Below is a summary of the software packages used to analyze the data presented i
 Command-line:       R-based:
   BEDtools            ComplexHeatmap
   bowtie2             ClusterProfileR
-  deepTools           DEseq2
-  FastX-Toolkit       DiffBind   
-  Genrich
-  HOMER
-  SAMtools 
-  Trimmomatic                         
-  TOBIAS        
+  Cuffdiff            DESeq2
+  deepTools           DiffBind
+  FastX-Toolkit       DOSE   
+  Genrich             gRanges
+  HOMER               msigdbr
+  SAMtools            soGGi   
+  TOBIAS              tidyverse
+  Tophat
+  Trimmomatic
 ```      
