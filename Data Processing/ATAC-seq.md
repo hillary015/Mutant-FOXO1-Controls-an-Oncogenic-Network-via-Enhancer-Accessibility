@@ -19,7 +19,6 @@ done
 ## Alignment
 Trimmed data was aligned to a concatenated human (hg19)/ Drosophila (dm3) genome using Bowtie2 in bash.
 ```
-## Count Reads
 for file in $(ls *-forward_paired.fastq.gz); #Lists all R1.fastq files in directory
 do
 if [ ! -f ${file//-forward_paired.fastq.gz}.hg19dm3.sam ]; #Executes the following code if SAM file doesn't exist
