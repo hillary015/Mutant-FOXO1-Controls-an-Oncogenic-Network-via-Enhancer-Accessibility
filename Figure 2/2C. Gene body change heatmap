@@ -1,4 +1,4 @@
-# 2B. Gene body change heatmap
+# 2C. Gene body change heatmap
 ## Load Libraries
 ```{r}
 library(tidyverse)
