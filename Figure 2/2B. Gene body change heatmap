@@ -1,0 +1,500 @@
+# 2B. Gene body change heatmap
+## Load Libraries
+```{r}
+library(tidyverse)
+library(ComplexHeatmap)
+library(circlize)
+library(factoextra)
+library(cluster)
+library(gridExtra)
+library(xlsx)
+library(viridis)
+library(hillaryscolors)
+```
+
+## Load files
+```{r}
+Nud_norm_pp_gb_0v1_Deseq <- readr::read_delim("normalized_pp_gb_0v1h.txt") 
+Nud_norm_pp_gb_0v2_Deseq <- readr::read_delim("normalized_pp_gb_0v2.txt") 
+
+LY1_norm_pp_gb_0v0.5_Deseq <- readr::read_delim("../Exp 0358  PS_LY1_FOXO1_JE/Comb_seqruns/normalized_pp_gb_0v0.5.txt") 
+LY1_norm_pp_gb_0v1_Deseq <- readr::read_delim("../Exp 0358  PS_LY1_FOXO1_JE//Comb_seqruns/normalized_pp_gb_0v1.txt") 
+LY1_norm_pp_gb_0v2_Deseq <- readr::read_delim("../Exp 0358  PS_LY1_FOXO1_JE/Comb_seqruns/normalized_pp_gb_0v2.txt") 
+
+DHL4_norm_pp_gb_0v0.5_Deseq <- readr::read_delim("../Exp 0071/Exp0071_DHL4_FOXO1_0v0.5_normalized_pp_gb.txt") 
+DHL4_norm_pp_gb_0v1_Deseq <- readr::read_delim("../Exp 0071/Exp0071_DHL4_FOXO1_0v1_normalized_pp_gb.txt") 
+DHL4_norm_pp_gb_0v2_Deseq <- readr::read_delim("../Exp 0071/Exp0071_DHL4_FOXO1_0v2_normalized_pp_gb.txt")
+
+overlaps <- readr::read_delim("20230606_NUDUL1_DHL4_LY1_overlap.txt") 
+```
+
+## Import overlaps from Venny
+```{r}
+overlaps_tID <- overlaps %>% 
+  filter(Class == "down_all" | Class == "down_Nud_LY1" |  Class == "down_Nud_DHL4" | Class == "down_DHL4_LY1" | Class == "up_all" | Class == "up_DHL4_LY1" | Class == "up_Nud_DHL4" | Class == "up_Nud_LY1") %>%
+  left_join(LY1_norm_pp_gb_0v0.5_Deseq) %>%
+  select(Transcript, Gene, Class) %>%
+  filter(Transcript != "NM_001242630" & Transcript != "NM_001166373") 
+```
+
+## Repopulate table
+```{r}
+gbchange_all_tp_siggenes_gbdreplicates <- overlaps_tID %>%
+  dplyr::left_join(select(LY1_norm_pp_gb_0v0.5_Deseq, Transcript, LY1_PS0A_gbd_0.5 = `gbd_7771-HL-1_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS0B_gbd_0.5 = `gbd_7771-HL-2_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS0.5A_gbd = `gbd_7771-HL-3_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS0.5B_gbd = `gbd_7771-HL-4_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`)) %>%
+  dplyr::left_join(select(LY1_norm_pp_gb_0v1_Deseq, Transcript, LY1_PS0A_gbd_1 = `gbd_7771-HL-1_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS0B_gbd_1 = `gbd_7771-HL-2_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS1A_gbd = `gbd_7771-HL-5_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS1B_gbd = `gbd_7771-HL-6_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`)) %>%
+  dplyr::left_join(select(LY1_norm_pp_gb_0v2_Deseq, Transcript, LY1_PS0A_gbd_2 = `gbd_7771-HL-1_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS0B_gbd_2 = `gbd_7771-HL-2_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS2A_gbd = `gbd_7771-HL-7_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, LY1_PS2B_gbd = `gbd_7771-HL-8_comb.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`)) %>%
+  mutate(LY1_l2fc_0.5A = log2(LY1_PS0.5A_gbd/(((LY1_PS0A_gbd_0.5 + LY1_PS0B_gbd_0.5)/2)))) %>%
+  mutate(LY1_l2fc_0.5B = log2(LY1_PS0.5B_gbd/(((LY1_PS0A_gbd_0.5 + LY1_PS0B_gbd_0.5)/2)))) %>%
+  mutate(LY1_l2fc_1A = log2(LY1_PS1A_gbd/(((LY1_PS0A_gbd_1 + LY1_PS0B_gbd_1)/2)))) %>%
+  mutate(LY1_l2fc_1B = log2(LY1_PS1B_gbd/(((LY1_PS0A_gbd_1 + LY1_PS0B_gbd_1)/2)))) %>%
+  mutate(LY1_l2fc_2A = log2(LY1_PS2A_gbd/(((LY1_PS0A_gbd_2 + LY1_PS0B_gbd_2)/2)))) %>%
+  mutate(LY1_l2fc_2B = log2(LY1_PS2B_gbd/(((LY1_PS0A_gbd_2 + LY1_PS0B_gbd_2)/2)))) %>%
+  dplyr::left_join(select(Nud_norm_pp_gb_0v1_Deseq, Transcript, Nud_PS0A_gbd_1 = `gbd_9322-HL-0001_S1_L001_R1_001.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, Nud_PS0B_gbd_1 = `gbd_9322-HL-0002_S1_L001_R1_001.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, Nud_PS1A_gbd = `gbd_9322-HL-0004_S1_L001_R1_001.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, Nud_PS1B_gbd = `gbd_9322-HL-0005_S1_L001_R1_001.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`)) %>%
+  dplyr::left_join(select(Nud_norm_pp_gb_0v2_Deseq, Transcript, Nud_PS0A_gbd_2 = `gbd_9322-HL-0001_S1_L001_R1_001.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, Nud_PS0B_gbd_2 = `gbd_9322-HL-0002_S1_L001_R1_001.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, Nud_PS2A_gbd = `gbd_9322-HL-0006_S1_L001_R1_001.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`, Nud_PS2B_gbd = `gbd_9322-HL-0007_S1_L001_R1_001.fastq.trimmed.revcomp_hg19dm3.F4q10.sorted.dm3rm.sorted`)) %>%
+  mutate(Nud_l2fc_1A = log2(Nud_PS1A_gbd/(((Nud_PS0A_gbd_1 + Nud_PS0B_gbd_1)/2)))) %>%
+  mutate(Nud_l2fc_1B = log2(Nud_PS1B_gbd/(((Nud_PS0A_gbd_1 + Nud_PS0B_gbd_1)/2)))) %>%
+  mutate(Nud_l2fc_2A = log2(Nud_PS2A_gbd/(((Nud_PS0A_gbd_2 + Nud_PS0B_gbd_2)/2)))) %>%
+  mutate(Nud_l2fc_2B = log2(Nud_PS2B_gbd/(((Nud_PS0A_gbd_2 + Nud_PS0B_gbd_2)/2)))) %>%
+dplyr::left_join(select(DHL4_norm_pp_gb_0v0.5_Deseq, Transcript, DHL4_PS0A_gbd_0.5 = `gbd_3466-KS-2-DHL4_FOXO1_FKBP_0hr-1.hg19spikeinrm2.F4q10.sorted`, DHL4_PS0B_gbd_0.5 = `gbd_3466-KS-3-DHL4_FOXO1_FKBP_0hr-2.hg19spikeinrm2.F4q10.sorted`, DHL4_PS0.5A_gbd = `gbd_3466-KS-8-DHL4_FOXO1_FKBP_30min-1.hg19spikeinrm2.F4q10.sorted`, DHL4_PS0.5B_gbd = `gbd_3466-KS-9-DHL4_FOXO1_FKBP_30min-2.hg19spikeinrm2.F4q10.sorted`)) %>%
+  dplyr::left_join(select(DHL4_norm_pp_gb_0v1_Deseq, Transcript, DHL4_PS0A_gbd_1 = `gbd_3466-KS-2-DHL4_FOXO1_FKBP_0hr-1.hg19spikeinrm2.F4q10.sorted`, DHL4_PS0B_gbd_1 = `gbd_3466-KS-3-DHL4_FOXO1_FKBP_0hr-2.hg19spikeinrm2.F4q10.sorted`, DHL4_PS1A_gbd = `gbd_3466-KS-4-DHL4_FOXO1_FKBP_1hr-1.hg19spikeinrm2.F4q10.sorted`, DHL4_PS1B_gbd = `gbd_3466-KS-5-DHL4_FOXO1_FKBP_1hr-2.hg19spikeinrm2.F4q10.sorted`)) %>%
+  dplyr::left_join(select(DHL4_norm_pp_gb_0v2_Deseq, Transcript, DHL4_PS0A_gbd_2 = `gbd_3466-KS-2-DHL4_FOXO1_FKBP_0hr-1.hg19spikeinrm2.F4q10.sorted`, DHL4_PS0B_gbd_2 = `gbd_3466-KS-3-DHL4_FOXO1_FKBP_0hr-2.hg19spikeinrm2.F4q10.sorted`, DHL4_PS2A_gbd = `gbd_3466-KS-10-DHL4_FOXO1_FKBP_2hr-1.hg19spikeinrm2.F4q10.sorted`, DHL4_PS2B_gbd = `gbd_3466-KS-11-DHL4_FOXO1_FKBP_2hr-2.hg19spikeinrm2.F4q10.sorted`)) %>%
+  mutate(DHL4_l2fc_0.5A = log2(DHL4_PS0.5A_gbd/(((DHL4_PS0A_gbd_0.5 + DHL4_PS0B_gbd_0.5)/2)))) %>%
+  mutate(DHL4_l2fc_0.5B = log2(DHL4_PS0.5B_gbd/(((DHL4_PS0A_gbd_0.5 + DHL4_PS0B_gbd_0.5)/2)))) %>%
+  mutate(DHL4_l2fc_1A = log2(DHL4_PS1A_gbd/(((DHL4_PS0A_gbd_1 + DHL4_PS0B_gbd_1)/2)))) %>%
+  mutate(DHL4_l2fc_1B = log2(DHL4_PS1B_gbd/(((DHL4_PS0A_gbd_1 + DHL4_PS0B_gbd_1)/2)))) %>%
+  mutate(DHL4_l2fc_2A = log2(DHL4_PS2A_gbd/(((DHL4_PS0A_gbd_2 + DHL4_PS0B_gbd_2)/2)))) %>%
+  mutate(DHL4_l2fc_2B = log2(DHL4_PS2B_gbd/(((DHL4_PS0A_gbd_2 + DHL4_PS0B_gbd_2)/2)))) %>%
+select(Transcript, Gene, Class, Nud_l2fc_1A, Nud_l2fc_1B, Nud_l2fc_2A, Nud_l2fc_2B, LY1_l2fc_0.5A, LY1_l2fc_0.5B, LY1_l2fc_1A, LY1_l2fc_1B, LY1_l2fc_2A, LY1_l2fc_2B, DHL4_l2fc_0.5A, DHL4_l2fc_0.5B, DHL4_l2fc_1A, DHL4_l2fc_1B, DHL4_l2fc_2A, DHL4_l2fc_2B) %>%
+  dplyr::mutate_all(~replace(., is.infinite(.), 0)) %>%
+  dplyr::mutate_all(~replace(., is.na(.), 0))
+```
+
+## Determine the optimal number of clusters (kmeans) using the elbow method
+```{r}
+set.seed(123) 
+
+kmeans_elbow_siggenes_LY1_FOXO1_PROseq_alltp_gbdreplicates <- factoextra::fviz_nbclust(gbchange_all_tp_siggenes_gbdreplicates[4:19], kmeans, method = "wss")
+kmeans_elbow_siggenes_LY1_FOXO1_PROseq_alltp_gbdreplicates
+```
+
+## Print to PNG
+```{r, fig.show='hide'}
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_kmeans_elbow.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+kmeans_elbow_siggenes_LY1_FOXO1_PROseq_alltp_gbdreplicates
+dev.off()
+```
+
+## Cluster data, kmeans
+```{r}
+#Cluster data
+
+k3_siggenes <- kmeans(gbchange_all_tp_siggenes_gbdreplicates[4:19], centers = 3, nstart = 25)
+k4_siggenes <- kmeans(gbchange_all_tp_siggenes_gbdreplicates[4:19], centers = 4, nstart = 25)
+k5_siggenes <- kmeans(gbchange_all_tp_siggenes_gbdreplicates[4:19], centers = 5, nstart = 25)
+k6_siggenes <- kmeans(gbchange_all_tp_siggenes_gbdreplicates[4:19], centers = 6, nstart = 25)
+
+#Add cluster column to data frames, arrange table by cluster
+siggenes_cluster_km3 <- gbchange_all_tp_siggenes_gbdreplicates %>%
+  dplyr::mutate(Cluster = k3_siggenes$cluster) %>%
+  dplyr::arrange(Cluster)
+
+siggenes_cluster_km4 <- gbchange_all_tp_siggenes_gbdreplicates %>%
+  dplyr::mutate(Cluster = k4_siggenes$cluster) %>%
+  dplyr::arrange(Cluster)
+
+siggenes_cluster_km5 <- gbchange_all_tp_siggenes_gbdreplicates %>%
+  dplyr::mutate(Cluster = k5_siggenes$cluster) %>%
+  dplyr::arrange(Cluster)
+
+siggenes_cluster_km6 <- gbchange_all_tp_siggenes_gbdreplicates %>%
+  dplyr::mutate(Cluster = k6_siggenes$cluster) %>%
+  dplyr::arrange(Cluster)
+
+#Visualize clusters
+p3 <- factoextra::fviz_cluster(k3_siggenes, geom = "point", data = gbchange_all_tp_siggenes_gbdreplicates[4:19]) + ggtitle("k = 3")
+p4 <- factoextra::fviz_cluster(k4_siggenes, geom = "point", data = gbchange_all_tp_siggenes_gbdreplicates[4:19]) + ggtitle("k = 4")
+p5 <- factoextra::fviz_cluster(k5_siggenes, geom = "point", data = gbchange_all_tp_siggenes_gbdreplicates[4:19]) + ggtitle("k = 5")
+p6 <- factoextra::fviz_cluster(k6_siggenes, geom = "point", data = gbchange_all_tp_siggenes_gbdreplicates[4:19]) + ggtitle("k = 6")
+
+gridExtra::grid.arrange(p3, p4, p5, p6)
+```
+
+## Print to PNG
+```{r, fig.show='hide'}
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_kmeans_fviz.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+grid.arrange(p3, p4, p5, p6)
+dev.off()
+```
+
+## Make heatmap
+```{r}
+gbchange_all_tp_siggenes_gbdreplicates <- as.data.frame(gbchange_all_tp_siggenes_gbdreplicates)
+rnames = gbchange_all_tp_siggenes_gbdreplicates [ , 2]
+mat_data = data.matrix(gbchange_all_tp_siggenes_gbdreplicates [ , 4:19])
+rownames(mat_data) = rnames
+my_palette = colorRamp2(c(-2, 0, 2), c("#053061", "#f5f5f5", "#70000C"))
+
+heatmap_km3 <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km3", km = 3, row_km_repeats = 25, cluster_columns = FALSE, cluster_row_slices = FALSE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 4))
+heatmap_km3
+
+heatmap_km4 <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km4", km = 4, row_km_repeats = 25, cluster_columns = FALSE, cluster_row_slices = TRUE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 4))
+heatmap_km4
+
+heatmap_km5 <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km5", km = 5, row_km_repeats = 25, cluster_columns = FALSE, cluster_row_slices = TRUE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 5))
+heatmap_km5
+
+heatmap_km6 <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km6", km = 6, row_km_repeats = 25, cluster_columns = FALSE, cluster_row_slices = TRUE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 6))
+heatmap_km6
+```
+
+## Print to PNG
+```{r, fig.show='hide'}
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_km3_colpal2_5x25.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=25,
+             pointsize=12, 
+             dpi=300)
+heatmap_km3
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_km4_colpal2_5x25.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=25, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km4
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_km5_colpal2_5x25.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=25, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km5
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_km6_colpal2_5x25.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=25, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km6
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_km3_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10,
+             pointsize=12, 
+             dpi=300)
+heatmap_km3
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_km4_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km4
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_km5_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km5
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_siggenestwocellines_replicates_km6_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km6
+dev.off()
+```
+
+## NUD/LY1 shared genes only
+## Determine the optimal number of clusters (kmeans) using the elbow method
+```{r}
+LY1_nud_overlap <- gbchange_all_tp_siggenes_gbdreplicates %>%
+  filter(Class == "up_all" | Class == "up_Nud_LY1" | Class == "down_all" | Class == "down_Nud_LY1") %>%
+  dplyr::mutate(rowname = row_number())
+
+set.seed(123) 
+
+kmeans_elbow_siggenes_LY1_nud_FOXO1_PROseq_alltp_gbdreplicates <- factoextra::fviz_nbclust(LY1_nud_overlap[4:19], kmeans, method = "wss")
+kmeans_elbow_siggenes_LY1_nud_FOXO1_PROseq_alltp_gbdreplicates
+```
+
+## Print to PNG
+```{r, fig.show='hide'}
+Cairo::Cairo(file="20230606 PS_gbc_Nud_LY1_overlap_replicates_kmeans_elbow.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+kmeans_elbow_siggenes_LY1_FOXO1_PROseq_alltp_gbdreplicates
+dev.off()
+```
+
+## Cluster data, kmeans
+```{r}
+#Cluster data
+
+k3_siggenes <- kmeans(LY1_nud_overlap[4:19], centers = 3, nstart = 25)
+k4_siggenes <- kmeans(LY1_nud_overlap[4:19], centers = 4, nstart = 25)
+k5_siggenes <- kmeans(LY1_nud_overlap[4:19], centers = 5, nstart = 25)
+k6_siggenes <- kmeans(LY1_nud_overlap[4:19], centers = 6, nstart = 25)
+
+#Add cluster column to data frames, arrange table by cluster
+siggenes_cluster_km3 <- LY1_nud_overlap %>%
+  dplyr::mutate(Cluster = k3_siggenes$cluster) %>%
+  dplyr::arrange(Cluster)
+
+siggenes_cluster_km4 <- LY1_nud_overlap %>%
+  dplyr::mutate(Cluster = k4_siggenes$cluster) %>%
+  dplyr::arrange(Cluster)
+
+siggenes_cluster_km5 <- LY1_nud_overlap %>%
+  dplyr::mutate(Cluster = k5_siggenes$cluster) %>%
+  dplyr::arrange(Cluster)
+
+siggenes_cluster_km6 <- LY1_nud_overlap %>%
+  dplyr::mutate(Cluster = k6_siggenes$cluster) %>%
+  dplyr::arrange(Cluster)
+
+#Visualize clusters
+p3 <- factoextra::fviz_cluster(k3_siggenes, geom = "point", data = LY1_nud_overlap[4:19]) + ggtitle("k = 3")
+p4 <- factoextra::fviz_cluster(k4_siggenes, geom = "point", data = LY1_nud_overlap[4:19]) + ggtitle("k = 4")
+p5 <- factoextra::fviz_cluster(k5_siggenes, geom = "point", data = LY1_nud_overlap[4:19]) + ggtitle("k = 5")
+p6 <- factoextra::fviz_cluster(k6_siggenes, geom = "point", data = LY1_nud_overlap[4:19]) + ggtitle("k = 6")
+
+gridExtra::grid.arrange(p3, p4, p5, p6)
+```
+
+## Print to PNG
+```{r, fig.show='hide'}
+Cairo::Cairo(file="20230606 PS_gbc_Nud_LY1_overlap_replicates_kmeans_fviz.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+grid.arrange(p3, p4, p5, p6)
+dev.off()
+```
+
+## Make heatmap
+```{r}
+LY1_nud_overlap <- as.data.frame(LY1_nud_overlap)
+rnames = LY1_nud_overlap [ , 2]
+mat_data = data.matrix(LY1_nud_overlap [ , 4:19])
+rownames(mat_data) = rnames
+my_palette = colorRamp2(c(-2, 0, 2), c("#053061", "#f5f5f5", "#70000C"))
+
+heatmap_km3_NL <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km3", km = 3, row_km_repeats = 25, cluster_columns = FALSE, cluster_row_slices = FALSE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 4))
+heatmap_km3_NL
+
+heatmap_km4_NL <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km4", km = 4, row_km_repeats = 25, cluster_columns = FALSE, cluster_row_slices = FALSE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 4))
+heatmap_km4_NL
+
+heatmap_km5_NL <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km5", km = 5, row_km_repeats = 25, cluster_columns = FALSE, cluster_row_slices = TRUE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 5))
+heatmap_km5_NL
+
+heatmap_km6_NL <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km6", km = 6, row_km_repeats = 25, cluster_columns = FALSE, cluster_row_slices = TRUE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 6))
+heatmap_km6_NL
+```
+
+## Print to PNG
+```{r, fig.show='hide'}
+Cairo::Cairo(file="20230606 PS_gbc_LY1_nud_overlap_replicates_km3_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10,
+             pointsize=12, 
+             dpi=300)
+heatmap_km3_NL
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_LY1_nud_overlap_replicates_km4_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km4_NL
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_LY1_nud_overlap_replicates_km5_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km5_NL
+dev.off()
+
+Cairo::Cairo(file="20230606 PS_gbc_LY1_nud_overlap_replicates_km6_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km6_NL
+dev.off()
+```
+
+
+## Extract clusters
+```{r, fig.show='hide'}
+#Extract row orders for each cluster
+km3 = draw(heatmap_km3_NL)
+siggenes_km3_roworder <- row_order(km3)
+siggenes_km3_cluster1 <- as.data.frame(do.call(cbind, siggenes_km3_roworder[1]))
+siggenes_km3_cluster2 <- as.data.frame(do.call(cbind, siggenes_km3_roworder[2]))
+siggenes_km3_cluster3 <- as.data.frame(do.call(cbind, siggenes_km3_roworder[3]))
+
+#Add gene_ID to tables, swap c3 and c4
+siggenes_km3_cluster1_gn <- siggenes_km3_cluster1 %>% 
+  dplyr::left_join(select(LY1_nud_overlap, Transcript, Gene, rowname), by = c("1" = "rowname"))%>%
+  dplyr::mutate(cluster = 1) %>%
+  dplyr::rename(rowname = "1")
+
+siggenes_km3_cluster2_gn <- siggenes_km3_cluster2 %>% 
+  dplyr::left_join(select(LY1_nud_overlap, Transcript, Gene, rowname), by = c("2" = "rowname")) %>%
+  dplyr::mutate(cluster = 2) %>%
+  dplyr::rename(rowname = "2")
+
+siggenes_km3_cluster3_gn <- siggenes_km3_cluster3 %>% 
+  dplyr::left_join(select(LY1_nud_overlap, Transcript, Gene, rowname), by = c("3" = "rowname")) %>%
+  dplyr::mutate(cluster = 3) %>%
+  dplyr::rename(rowname = "3")
+
+#Write to xlsx
+write.xlsx(siggenes_km3_cluster1_gn, file = "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km3.xlsx", 
+           sheetName = "Cluster 1", append = FALSE)
+write.xlsx(siggenes_km3_cluster2_gn, file = "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km3.xlsx", 
+           sheetName = "Cluster 2", append = TRUE)
+write.xlsx(siggenes_km3_cluster3_gn, file = "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km3.xlsx", 
+           sheetName = "Cluster 3", append = TRUE)
+
+##Write to .txt
+siggenes_km3_comb <- siggenes_km3_cluster1_gn %>%
+  dplyr::add_row(siggenes_km3_cluster2_gn) %>%
+  dplyr::add_row(siggenes_km3_cluster3_gn) 
+
+write_delim(siggenes_km3_comb, "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km3_clusters.txt", delim = "\t")
+
+#Extract row orders for each cluster
+km4 = draw(heatmap_km4_NL)
+siggenes_km4_roworder <- row_order(km4)
+siggenes_km4_cluster1 <- as.data.frame(do.call(cbind, siggenes_km4_roworder[1]))
+siggenes_km4_cluster2 <- as.data.frame(do.call(cbind, siggenes_km4_roworder[2]))
+siggenes_km4_cluster3 <- as.data.frame(do.call(cbind, siggenes_km4_roworder[3]))
+siggenes_km4_cluster4 <- as.data.frame(do.call(cbind, siggenes_km4_roworder[4]))
+
+#Add gene_ID to tabl
+siggenes_km4_cluster1_gn <- siggenes_km4_cluster1 %>% 
+  dplyr::left_join(select(LY1_nud_overlap, Transcript, Gene, rowname), by = c("1" = "rowname")) %>%
+  dplyr::mutate(cluster = 1) %>%
+  dplyr::rename(rowname = "1")
+
+siggenes_km4_cluster2_gn <- siggenes_km4_cluster2 %>% 
+  dplyr::left_join(select(LY1_nud_overlap, Transcript, Gene, rowname), by = c("2" = "rowname")) %>%
+  dplyr::mutate(cluster = 2) %>%
+  dplyr::rename(rowname = "2")
+
+siggenes_km4_cluster3_gn <- siggenes_km4_cluster3 %>% 
+  dplyr::left_join(select(LY1_nud_overlap, Transcript, Gene, rowname), by = c("3" = "rowname")) %>%
+  dplyr::mutate(cluster = 3) %>%
+  dplyr::rename(rowname = "3")
+
+siggenes_km4_cluster4_gn <- siggenes_km4_cluster4 %>% 
+  dplyr::left_join(select(LY1_nud_overlap, Transcript, Gene, rowname), by = c("4" = "rowname")) %>%
+  dplyr::mutate(cluster = 4) %>%
+  dplyr::rename(rowname = "4")
+
+#Write to xlsx
+write.xlsx(siggenes_km4_cluster1_gn, file = "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km4.xlsx", 
+           sheetName = "Cluster 1", append = FALSE)
+write.xlsx(siggenes_km4_cluster2_gn, file = "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km4.xlsx", 
+           sheetName = "Cluster 2", append = TRUE)
+write.xlsx(siggenes_km4_cluster3_gn, file = "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km4.xlsx", 
+           sheetName = "Cluster 3", append = TRUE)
+write.xlsx(siggenes_km4_cluster4_gn, file = "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km4.xlsx", 
+           sheetName = "Cluster 4", append = TRUE)
+
+##Write to .txt
+siggenes_km4_comb <- siggenes_km4_cluster1_gn %>%
+  dplyr::add_row(siggenes_km4_cluster2_gn) %>%
+  dplyr::add_row(siggenes_km4_cluster3_gn) %>%
+  dplyr::add_row(siggenes_km4_cluster4_gn) 
+
+write_delim(siggenes_km4_comb, "20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km4_clusters.txt", delim = "\t")
+
+heatmap_km4_NL_noslice <- ComplexHeatmap::Heatmap(mat_data, col = my_palette, column_title = "PRO-seq gbd reps km4", row_order = siggenes_km4_comb$rowname, cluster_columns = FALSE, cluster_row_slices = TRUE, show_row_names = TRUE, show_column_names = FALSE, row_names_gp = gpar(fontsize = 4))
+heatmap_km4_NL_noslice
+
+Cairo::Cairo(file="20230606 PS_gbc_LY1_nud_overlap_replicates_km4_noslice_colpal2_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10, 
+             pointsize=12, 
+             dpi=300)
+heatmap_km4_NL_noslice
+dev.off()
+```
