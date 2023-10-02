@@ -1,0 +1,171 @@
+# S2C. Gene body polymerase histograms
+The following code was used to make histograms of gene body polymerase from PRO-seq data in R.
+
+## Load libraries
+```{r}
+library(tidyverse)
+library(soGGi)
+library(hillaryscolors)
+```
+
+## Load files
+```{r}
+count_pp_gb <- readr::read_delim("count_pp_gb_0v1.txt")
+clusters <- readr::read_delim("20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km4_clusters.txt")
+allexpressed <- readr::read_delim("20230205 NUDUL1_FOXO1_PS_expressedgenes_duprm_manfilter.txt")
+```
+
+## Make peak files
+```{r}
+count_pp_gb_clustered <- count_pp_gb %>%
+  dplyr::left_join(clusters, by = "Transcript") %>%
+  dplyr::filter(Transcript != "NM_004918") %>%
+  dplyr::filter(cluster == 1 | cluster == 2 | cluster == 3 | cluster == 4) %>%
+  dplyr::select(chr, start, end, strand, cluster)
+
+peak_gbd_all <- count_pp_gb_clustered %>%
+  dplyr::filter(cluster != 4) %>%
+  dplyr::select(chr, start, end, strand)
+
+peak_gbu_all <- count_pp_gb_clustered %>%
+  dplyr::filter(cluster == 4) %>%
+  dplyr::select(chr, start, end, strand)
+
+allexpressed <- count_pp_gb %>%
+  filter(Transcript %in% allexpressed$Transcript) %>%
+    dplyr::select(chr, start, end, strand)
+```
+
+## Create gRanges objects
+```{r}
+gbdanytp_tss_tts_grange <- makeGRangesFromDataFrame(peak_gbd_all,
+                         keep.extra.columns = FALSE,
+                         ignore.strand = FALSE,
+                         seqinfo = NULL,
+                         seqnames.field = c("chr"),
+                         start.field="start",
+                         end.field=c("end"),
+                         strand.field="strand",
+                         starts.in.df.are.0based = FALSE)
+
+gbuanytp_tss_tts_grange <- makeGRangesFromDataFrame(peak_gbu_all,
+                         keep.extra.columns = FALSE,
+                         ignore.strand = FALSE,
+                         seqinfo = NULL,
+                         seqnames.field = c("chr"),
+                         start.field="start",
+                         end.field=c("end"),
+                         strand.field="strand",
+                         starts.in.df.are.0based = FALSE)
+
+allexpressedanytp_tss_tts_grange <- makeGRangesFromDataFrame(allexpressed,
+                         keep.extra.columns = FALSE,
+                         ignore.strand = FALSE,
+                         seqinfo = NULL,
+                         seqnames.field = c("chr"),
+                         start.field="start",
+                         end.field=c("end"),
+                         strand.field="strand",
+                         starts.in.df.are.0based = FALSE)
+```
+
+## Plot region with soGGi
+```{r}
+histpalette <- c("#440154FF", "#1F968BFF", "#73D055FF")
+
+#gbd
+gbd_0hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-0h_merged.bam", testRanges = gbdanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+gbd_1hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-1h_merged_sorted.bam", testRanges = gbdanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+gbd_2hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-2h_merged_sorted.bam", testRanges = gbdanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+
+gbd <- c(gbd_0hr, gbd_1hr, gbd_2hr)
+
+gbd_metagene <- plotRegion(gbd, colourBy = "Sample", outliers = 0.01) +
+  scale_color_manual(values = histpalette) +
+  scale_y_continuous(breaks = seq(0, 300, by = 100), expand = c(0, 0), limits = c(0, 300)) +
+  geom_vline(xintercept = 50, color = "#B3B6B7", linetype = 1, size = 0.5, alpha = 0.75) +
+  geom_vline(xintercept = 25, color = "#B3B6B7", linetype = 1, size = 0.5, alpha = 0.75) +
+  coord_cartesian(clip = "off") +
+  theme_hillary() +
+  theme(legend.position = "none")
+gbd_metagene
+
+#gbu
+gbu_0hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-0h_merged_sorted.bam", testRanges = gbuanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+gbu_1hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-1h_merged_sorted.bam", testRanges = gbuanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+gbu_2hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-2h_merged_sorted.bam", testRanges = gbuanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+
+gbu <- c(gbu_0hr, gbu_1hr, gbu_2hr)
+
+gbu_metagene <- plotRegion(gbu, colourBy = "Sample", outliers = 0.01) +
+  scale_color_manual(values = histpalette) +
+  scale_y_continuous(breaks = seq(0, 2000, by = 1000), expand = c(0, 0), limits = c(0, 2000)) +
+  geom_vline(xintercept = 50, color = "#B3B6B7", linetype = 1, size = 0.5, alpha = 0.75) +
+  geom_vline(xintercept = 25, color = "#B3B6B7", linetype = 1, size = 0.5, alpha = 0.75) +
+  coord_cartesian(clip = "off") +
+  theme_hillary() +
+  theme(legend.position = "none")
+gbu_metagene
+
+#allexpressed
+allexpressed_0hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-0h_merged_sorted.bam", testRanges = allexpressedanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+allexpressed_1hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-1h_merged_sorted.bam", testRanges = allexpressedanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+allexpressed_2hr <- regionPlot(bamFile = "D:/9322-NUDUL1-FOXO1_PRO-seq/9322-NUDUL1-PS-2h_merged_sorted.bam", testRanges = allexpressedanytp_tss_tts_grange, style = "percentOfRegion", format = "bam", nOfWindows = 25)
+
+allexpressed <- c(allexpressed_0hr, allexpressed_1hr, allexpressed_2hr)
+
+allexpressed_metagene <- plotRegion(allexpressed, colourBy = "Sample", outliers = 0.01) +
+  scale_color_manual(values = histpalette) +
+  scale_y_continuous(breaks = seq(0, 300, by = 150), expand = c(0, 0), limits = c(0, 300)) +
+  geom_vline(xintercept = 50, color = "#B3B6B7", linetype = 1, size = 0.5, alpha = 0.75) +
+  geom_vline(xintercept = 25, color = "#B3B6B7", linetype = 1, size = 0.5, alpha = 0.75) +
+  coord_cartesian(clip = "off") +
+  theme_hillary() +
+  theme(legend.position = "none")
+allexpressed_metagene
+```
+
+## Save to png
+```{r}
+png5x3 <- function(title, plot) {
+Cairo::Cairo(file=title, 
+             bg = "white",
+             type = "png",
+             units = "in", 
+             width = 5, 
+             height = 3, 
+             pointsize = 12, 
+             dpi = 300)
+plot
+}
+
+png5x3("20230614_Nud_FOXO1_anytp_tss_tts_coverage_hist_gbd_overlap_5x3.png", gbd_metagene)
+dev.off()
+
+png5x3("20230614_Nud_FOXO1_anytp_tss_tts_coverage_hist_gbu_overlap_5x3.png", gbu_metagene)
+dev.off()
+
+png5x3("20230614_Nud_FOXO1_anytp_tss_tts_coverage_hist_allexpressed_overlap_5x3.png", allexpressed_metagene)
+dev.off()
+
+svg <- function(title, plot) {
+  Cairo::Cairo(file = title, 
+             bg = "white",
+             type = "svg",
+             units = "in", 
+             width = 25, 
+             height = 15, 
+             pointsize = 12, 
+             dpi = 300)
+plot
+}
+
+svg("20230614_Nud_FOXO1_anytp_tss_tts_coverage_hist_gbd_overlap_5x3.svg", gbd_metagene)
+dev.off()
+
+svg("20230614_Nud_Nud_FOXO1_anytp_tss_tts_coverage_hist_gbu_overlap_5x3.svg", gbu_metagene)
+dev.off()
+
+svg("20230614_Nud_Nud_FOXO1_anytp_tss_tts_coverage_hist_allexpressed_overlap_5x3.svg", allexpressed_metagene)
+dev.off()
+```
