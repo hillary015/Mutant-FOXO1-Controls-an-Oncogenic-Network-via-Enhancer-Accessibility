@@ -122,7 +122,7 @@ echo "Skipping indexing of ${file%.*}.sorted.bam as ${file%.*}.sorted.bam.bai al
 fi
 done
 ```
-## Nascent transcript and eRAN quantification and differential expression 
+## Nascent transcript and eRNA quantification and differential expression 
 Quantification of  gene body and intergenic polymerases and differential expression was performed using NRSA in bash. 
 ```
 ## Gene body
