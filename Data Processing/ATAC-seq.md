@@ -34,7 +34,7 @@ done
 
 ```
 ## SAM/BAM conversion and read filtering
-Aligned ASM files were converted to BAM files and low quality reads were removed using SAMtools in bash.
+Aligned SAM files were converted to BAM files and low quality reads were removed using SAMtools in bash.
 ```
 for file in $(ls *.sam); #Creates a list of SAM files in working directory
 do
