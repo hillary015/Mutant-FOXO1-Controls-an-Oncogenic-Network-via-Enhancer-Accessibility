@@ -1,4 +1,4 @@
-# 2D_S2D
+# 2D
 The following code was used to generate pausing index heatmaps and bargraphs from PRO-seq data in R.
 ## Load Libraries
 ```{r}
