@@ -1,5 +1,14 @@
-# 2D
-The following code was used to generate pausing index heatmaps and bargraphs from PRO-seq data in R.
+---
+title: "20230609 PS_PIChange_LY1_Nud_overlap_km333_LY1_Nud_DHL4"
+author: "HLayden"
+date: "6/9/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
 ## Load Libraries
 ```{r}
 library(tidyverse)
@@ -272,3 +281,34 @@ write_delim(siggenes_wpichange_nocluster, "20230906 NUD_LY1_PS_pichanges_noclust
 write_delim(siggenes_wpichange_gbc, "20230906 NUD_LY1_PS_pichanges_nocluster_gbc.txt", delim = "\t")
 ```
 
+## Make stacked bar chart for peaks/ no peaks by cluster
+```{r}
+bppalette <- c("#31607f", "#70000c")
+pos <- c("NUD_gbd", "NUD_gbu", "LY1_gbd", "LY1_gbu", "DHL4_gbd", "DHL4_gbu")
+gbc_bp <- ggplot(siggenes_wpichange_gbc %>% filter(group != "NS"), aes(x = pos, y = genes, fill = group)) +
+  geom_bar(width = 0.5, position = position_dodge(0.65), stat="identity", color = "black") +
+  ggtitle("Genes with Significant PI Changes") +
+  xlab("group") +
+  ylab("Number of genes") +
+  theme_hillary() +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 40), breaks = seq(0, 40, by = 10)) +
+  scale_x_discrete(limits = pos) +
+  theme(plot.title = element_text(vjust = 2)) +
+  scale_fill_manual(values = bppalette) +
+  coord_cartesian(clip = "off") 
+gbc_bp
+```
+
+## Print to png
+```{r}
+Cairo::Cairo(file = "20230906 NUD_LY1_DHL4_PS_PIclass_gbc_group_bargraph_5x2.5.png", 
+             bg = "white",
+             type = "png",
+             units = "in", 
+             width = 5, 
+             height = 2.5, 
+             pointsize = 12, 
+             dpi = 300)
+gbc_bp
+dev.off()
+```
