@@ -1,12 +1,6 @@
 # 3B_3C. Heatmap and boxplot of mRNA levels
 The following code was used to make a heatmap and boxplots of mRNA levels from RNA-seq data.
 
----
-title: "20230615 RS PSgenes"
-author: "HLayden"
-date: "5/16/2023"
-output: html_document
----
 
 ## Load Library
 ```{r}
