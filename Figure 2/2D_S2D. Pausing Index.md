@@ -1,13 +1,5 @@
----
-title: "20230609 PS_PIChange_LY1_Nud_overlap_km333_LY1_Nud_DHL4"
-author: "HLayden"
-date: "6/9/2023"
-output: html_document
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+# 2D_S2D. Pausing Index
+The following code was used to create a heatmap and a bar graph from pausing index changes from PRO-seq data in R.
 
 ## Load Libraries
 ```{r}
