@@ -1,0 +1,260 @@
+# 3B_3C. Heatmap and boxplot of mRNA levels
+The following code was used to make a heatmap and boxplots of mRNA levels from RNA-seq data.
+
+---
+title: "20230615 RS PSgenes"
+author: "HLayden"
+date: "5/16/2023"
+output: html_document
+---
+
+## Load Library
+```{r}
+library(tidyverse)
+library(ComplexHeatmap)
+library(circlize)
+library(factoextra)
+library(cluster)
+library(gridExtra)
+library(xlsx)
+library(hillaryscolors)
+```
+
+## Load Data
+```{r}
+##load ps clusters
+clusters <- read.delim("../Exp 0460 NUDUL1_FOXO1_PS/20230606 PS_gbs_heatmap_NUD_LY1_DHL4_siggenes_LY1_NUD_overlap_replicatesgbd_km4_clusters.txt") %>%
+  select(cluster, Transcript, Gene) %>%
+  distinct()
+
+##read tracking files frfom tophat
+LY1_FOXO1_0hrv6hr_genes_read_group_tracking <- read.delim("../Exp 0131_FOXO1_ETO_RS/LY1_FOXO1_0hrv6hr_genes_read_group_tracking.txt")
+LY1_FOXO1_0hrv24hr_genes_read_group_tracking <- read.delim("../Exp 0131_FOXO1_ETO_RS/LY1_FOXO1_0hrv24hr_genes_read_group_tracking.txt")
+DHL4_FOXO1_0hrv6hr_genes_read_group_tracking <- read.delim("../Exp 0131_FOXO1_ETO_RS/DHL4_FOXO1_0hrv6hr_genes_read_group_tracking.txt")
+DHL4_FOXO1_0hrv24hr_genes_read_group_tracking <- read.delim("../Exp 0131_FOXO1_ETO_RS/DHL4_FOXO1_0hrv24hr_genes_read_group_tracking.txt")
+LY7_FOXO1_0hrv6hr_genes_read_group_tracking <- read.delim("LY7_FOXO1_FKBP_0v6_genes.read_group_tracking.txt")
+LY7_FOXO1_0hrv24hr_genes_read_group_tracking <- read.delim("LY7_FOXO1_FKBP_0v24_genes.read_group_tracking.txt")
+Nud_FOXO1_0hrv6hr_genes_read_group_tracking <- read.delim("NUD_FOXO1_FKBP_0v6_genes.read_group_tracking.txt")
+Nud_FOXO1_0hrv24hr_genes_read_group_tracking <- read.delim("NUD_FOXO1_FKBP_0v24_genes.read_group_tracking.txt")
+
+##gene_exp_diff
+LY1_FOXO1_0hrv6hr_geneexp_diff <- read.delim("../Exp 0131_FOXO1_ETO_RS/LY1_FOXO1_0hrv6hr_geneexp_diff.txt")
+LY1_FOXO1_0hrv24hr_geneexp_diff <- read.delim("../Exp 0131_FOXO1_ETO_RS/LY1_FOXO1_0hrv24hr_geneexp_diff.txt")
+DHL4_FOXO1_0hrv6hr_geneexp_diff <- read.delim("../Exp 0131_FOXO1_ETO_RS/DHL4_FOXO1_0hrv6hr_geneexp_diff.txt")
+DHL4_FOXO1_0hrv24hr_geneexp_diff <- read.delim("../Exp 0131_FOXO1_ETO_RS/DHL4_FOXO1_0hrv24hr_geneexp_diff.txt")
+LY7_FOXO1_0hrv6hr_geneexp_diff <- read.delim("LY7_FOXO1_FKBP_0v6h_gene_exp_diff.txt")
+LY7_FOXO1_0hrv24hr_geneexp_diff <- read.delim("LY7_FOXO1_FKBP_0v24h_gene_exp_diff.txt")
+Nud_FOXO1_0hrv6hr_geneexp_diff <- read.delim("NUD_FOXO1_FKBP_0v6h_gene_exp_diff.txt")
+Nud_FOXO1_0hrv24hr_geneexp_diff <- read.delim("NUD_FOXO1_FKBP_0v24h_gene_exp_diff.txt")
+```
+
+## Reshape read data
+```{r}
+rsreshape <- function(df) {
+df$sample <- paste(df$condition, df$replicate)
+
+df %>%
+  mutate(FPKM_adj = FPKM + 0.0001) %>%
+  select(tracking_id, FPKM_adj, sample) %>%
+  pivot_wider(names_from = sample, values_from = FPKM_adj)
+}
+
+LY1_FOXO1_0hrv6hr_genes_read_group_tracking_replicates <- rsreshape(LY1_FOXO1_0hrv6hr_genes_read_group_tracking)
+LY1_FOXO1_0hrv24hr_genes_read_group_tracking_replicates <- rsreshape(LY1_FOXO1_0hrv24hr_genes_read_group_tracking)
+DHL4_FOXO1_0hrv6hr_genes_read_group_tracking_replicates <- rsreshape(DHL4_FOXO1_0hrv6hr_genes_read_group_tracking)
+DHL4_FOXO1_0hrv24hr_genes_read_group_tracking_replicates <- rsreshape(DHL4_FOXO1_0hrv24hr_genes_read_group_tracking)
+LY7_FOXO1_0hrv6hr_genes_read_group_tracking_replicates <- rsreshape(LY7_FOXO1_0hrv6hr_genes_read_group_tracking)
+LY7_FOXO1_0hrv24hr_genes_read_group_tracking_replicates <- rsreshape(LY7_FOXO1_0hrv24hr_genes_read_group_tracking)
+Nud_FOXO1_0hrv6hr_genes_read_group_tracking_replicates <- rsreshape(Nud_FOXO1_0hrv6hr_genes_read_group_tracking)
+Nud_FOXO1_0hrv24hr_genes_read_group_tracking_replicates <- rsreshape(Nud_FOXO1_0hrv24hr_genes_read_group_tracking)
+```
+
+## Repopulate table with read data 
+```{r}
+siggenes_fpkm <- clusters %>%
+  left_join(select(LY1_FOXO1_0hrv6hr_genes_read_group_tracking_replicates, Gene = tracking_id, LY1_T0A = '0hr 0', LY1_T0B = '0hr 1', LY1_T6A = '6hr 0', LY1_T6B = '6hr 1')) %>%
+  left_join(select(LY1_FOXO1_0hrv24hr_genes_read_group_tracking_replicates, Gene = tracking_id,  LY1_T24A = '24hr 0', LY1_T24B = '24hr 1')) %>%
+    left_join(select(DHL4_FOXO1_0hrv6hr_genes_read_group_tracking_replicates, Gene = tracking_id, DHL4_T0A = '0hr 0', DHL4_T0B = '0hr 1', DHL4_T6A = '4hr 0', DHL4_T6B = '4hr 1')) %>%
+  left_join(select(DHL4_FOXO1_0hrv24hr_genes_read_group_tracking_replicates, Gene = tracking_id,  DHL4_T24A = '4hr 0', DHL4_T24B = '4hr 1')) %>%
+    left_join(select(LY7_FOXO1_0hrv6hr_genes_read_group_tracking_replicates, Gene = tracking_id, LY7_T0A = '0h 0', LY7_T0B = '0h 1', LY7_T6A = '6h 0', LY7_T6B = '6h 1')) %>%
+  left_join(select(LY7_FOXO1_0hrv24hr_genes_read_group_tracking_replicates, Gene = tracking_id,  LY7_T24A = '24h 0', LY7_T24B = '24h 1')) %>%
+    left_join(select(Nud_FOXO1_0hrv6hr_genes_read_group_tracking_replicates, Gene = tracking_id, Nud_T0A = '0h 0', Nud_T0B = '0h 1', Nud_T6A = '6-u 0', Nud_T6B = '6-u 1')) %>%
+  left_join(select(Nud_FOXO1_0hrv24hr_genes_read_group_tracking_replicates, Gene = tracking_id,  Nud_T24A = '24h 0', Nud_T24B = '24h 1')) %>%
+  mutate(row_number = row_number()) %>%
+  mutate(LY1_l2FC_6A = log2(LY1_T6A/((LY1_T0A + LY1_T0B)/2))) %>%
+  mutate(LY1_l2FC_6B = log2(LY1_T6B/((LY1_T0A + LY1_T0B)/2))) %>%
+  mutate(LY1_l2FC_24A = log2(LY1_T24A/((LY1_T0A + LY1_T0B)/2))) %>%
+  mutate(LY1_l2FC_24B = log2(LY1_T24B/((LY1_T0A + LY1_T0B)/2))) %>%
+  mutate(Nud_l2FC_6A = log2(Nud_T6A/((Nud_T0A + Nud_T0B)/2))) %>%
+  mutate(Nud_l2FC_6B = log2(Nud_T6B/((Nud_T0A + Nud_T0B)/2))) %>%
+  mutate(Nud_l2FC_24A = log2(Nud_T24A/((Nud_T0A + Nud_T0B)/2))) %>%
+  mutate(Nud_l2FC_24B = log2(Nud_T24B/((Nud_T0A + Nud_T0B)/2))) %>%
+  mutate(LY7_l2FC_6A = log2(LY7_T6A/((LY7_T0A + LY7_T0B)/2))) %>%
+  mutate(LY7_l2FC_6B = log2(LY7_T6B/((LY7_T0A + LY7_T0B)/2))) %>%
+  mutate(LY7_l2FC_24A = log2(LY7_T24A/((LY7_T0A + LY7_T0B)/2))) %>%
+  mutate(LY7_l2FC_24B = log2(LY7_T24B/((LY7_T0A + LY7_T0B)/2)))%>%
+  mutate(DHL4_l2FC_6A = log2(DHL4_T6A/((DHL4_T0A + DHL4_T0B)/2))) %>%
+  mutate(DHL4_l2FC_6B = log2(DHL4_T6B/((DHL4_T0A + DHL4_T0B)/2))) %>%
+  mutate(DHL4_l2FC_24A = log2(DHL4_T24A/((DHL4_T0A + DHL4_T0B)/2))) %>%
+  mutate(DHL4_l2FC_24B = log2(DHL4_T24B/((DHL4_T0A + DHL4_T0B)/2))) %>%
+  select(row_number, Gene, cluster, Nud_l2FC_6A, Nud_l2FC_6B, Nud_l2FC_24A, Nud_l2FC_24B, LY1_l2FC_6A, LY1_l2FC_6B, LY1_l2FC_24A, LY1_l2FC_24B, LY7_l2FC_6A, LY7_l2FC_6B, LY7_l2FC_24A, LY7_l2FC_24B, DHL4_l2FC_6A, DHL4_l2FC_6B, DHL4_l2FC_24A, DHL4_l2FC_24B) 
+```
+
+## Make Heatmaps
+```{r, fig.show = 'hold', fig.dim = c(2, 4)}
+#All heatmaps
+my_palette = colorRamp2(c(-2, 0, 2), c("#053061", "#f5f5f5", "#70000C"))
+cols <- c(4:11, 16:19)
+siggenes_fpkm_noLY7 <- as.data.frame(siggenes_fpkm)
+rnames = siggenes_fpkm_noLY7 [ , 2]
+mat_data_noLY7 = data.frame(siggenes_fpkm_noLY7[ ,cols])
+
+heatmap_noLY7 <- Heatmap(mat_data_noLY7, col = my_palette, column_title = "mRNA Levels of PS genees", cluster_columns = FALSE, cluster_rows = FALSE, show_row_names = TRUE, show_column_names = TRUE, row_names_gp = gpar(fontsize = 4), row_gap = unit(2, "mm"))
+heatmap_noLY7
+```
+
+## Print to PNG
+```{r, fig.show = 'hide'}
+Cairo::Cairo(file="20230615_mRNAlevels of PS genes_noLY7_noslice_l2fc_10x5.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10, 
+             pointsize=12, 
+             dpi=300)
+heatmap_noLY7
+dev.off()
+```
+## Box plots l2FC
+```{r}
+genes_l2fc <- select(LY1_FOXO1_0hrv6hr_geneexp_diff, Gene = gene, B_LY1_T0 = value_1, B_LY1_l2fc_6 = log2.fold_change.) %>%
+  left_join(select(LY1_FOXO1_0hrv24hr_geneexp_diff, Gene = gene,  B_LY1_l2fc_24 = log2.fold_change.)) %>%
+  left_join( select(LY7_FOXO1_0hrv6hr_geneexp_diff, Gene = gene, C_LY7_T0 = value_1, C_LY7_l2fc_6 = log2.fold_change.)) %>%
+  left_join(select(LY7_FOXO1_0hrv24hr_geneexp_diff, Gene = gene,  C_LY7_l2fc_24 = log2.fold_change.)) %>%
+  left_join( select(DHL4_FOXO1_0hrv6hr_geneexp_diff, Gene = gene, D_DHL4_T0 = value_1, D_DHL4_l2fc_6 = log2.fold_change.)) %>%
+  left_join(select(DHL4_FOXO1_0hrv24hr_geneexp_diff, Gene = gene,  D_DHL4_l2fc_24 = log2.fold_change.)) %>%
+  left_join( select(Nud_FOXO1_0hrv6hr_geneexp_diff, Gene = gene, A_Nud_T0 = value_1, A_Nud_l2fc_6 = log2.fold_change.)) %>%
+  left_join(select(Nud_FOXO1_0hrv24hr_geneexp_diff, Gene = gene,  A_Nud_l2fc_24 = log2.fold_change.)) %>%
+  left_join(clusters) %>%
+  dplyr::mutate(cluster = replace_na(cluster, 0))
+
+options(scipen = 999)
+
+l2fc_summ <- genes_l2fc %>%
+  dplyr::mutate(clustsimp = case_when(cluster == 0 ~ "NS", cluster == 1 | cluster == 2 | cluster == 3 ~ "Down", cluster == 4 ~ "Up")) %>%
+  dplyr::mutate_if(is.numeric, function(x) ifelse(is.infinite(x), 0, x)) %>%
+  dplyr::filter(!B_LY1_T0 <0.00001 & !D_DHL4_T0 < 0.00001 & !C_LY7_T0 < 0.00001 & !A_Nud_T0 <0.00001) %>%
+  dplyr::group_by(cluster) %>%
+  dplyr::mutate(meanB_LY1_6 = mean(B_LY1_l2fc_6), sdB_LY1_6 = sd(B_LY1_l2fc_6), semB_LY1_6 = sdB_LY1_6/sqrt(n())) %>%
+  dplyr::mutate(meanD_DHL4_6 = mean(D_DHL4_l2fc_6), sdD_DHL4_6 = sd(D_DHL4_l2fc_6), semD_DHL4_6 = sdD_DHL4_6/sqrt(n())) %>%
+  dplyr::mutate(meanC_LY7_6 = mean(C_LY7_l2fc_6), sdC_LY7_6 = sd(C_LY7_l2fc_6), semC_LY7_6 = sdC_LY7_6/sqrt(n())) %>%
+  dplyr::mutate(meanA_Nud_6 = mean(A_Nud_l2fc_6), sdA_Nud_6 = sd(A_Nud_l2fc_6), semA_Nud_6 = sdA_Nud_6/sqrt(n())) %>%
+  dplyr::mutate(meanB_LY1_24 = mean(B_LY1_l2fc_24), sdB_LY1_24 = sd(B_LY1_l2fc_24), semB_LY1_24 = sdB_LY1_24/sqrt(n())) %>%
+  dplyr::mutate(meanD_DHL4_24 = mean(D_DHL4_l2fc_24), sdD_DHL4_24 = sd(D_DHL4_l2fc_24), semD_DHL4_24 = sdD_DHL4_24/sqrt(n())) %>%
+  dplyr::mutate(meanC_LY7_24 = mean(C_LY7_l2fc_24), sdC_LY7_24 = sd(C_LY7_l2fc_24), semC_LY7_24 = sdC_LY7_24/sqrt(n())) %>%
+  dplyr::mutate(meanA_Nud_24 = mean(A_Nud_l2fc_24), sdA_Nud_24 = sd(A_Nud_l2fc_24), semA_Nud_24 = sdA_Nud_24/sqrt(n())) %>%
+  dplyr::select(Gene, B_LY1_T0, C_LY7_T0, D_DHL4_T0, A_Nud_T0, B_LY1_l2fc_6, C_LY7_l2fc_6, D_DHL4_l2fc_6,A_Nud_l2fc_6, B_LY1_l2fc_24, C_LY7_l2fc_24, D_DHL4_l2fc_24, B_LY1_l2fc_24, C_LY7_l2fc_24, D_DHL4_l2fc_24, A_Nud_l2fc_24,cluster, clustsimp, meanB_LY1_6, sdB_LY1_6, semB_LY1_6, meanD_DHL4_6, sdD_DHL4_6, semD_DHL4_6, meanC_LY7_6, sdC_LY7_6, semC_LY7_6, meanA_Nud_6, sdA_Nud_6, semA_Nud_6, meanB_LY1_24, sdB_LY1_24, semB_LY1_24, meanD_DHL4_24, sdD_DHL4_24, semD_DHL4_24, meanC_LY7_24, sdC_LY7_24, semC_LY7_24, meanA_Nud_24, sdA_Nud_24, semA_Nud_24) %>%
+  tidyr::pivot_longer(B_LY1_l2fc_6:A_Nud_l2fc_24, values_to = "l2fc", names_to = "Sample")
+
+readr::write_delim(l2fc_summ, "20230615 Allcelllines_FOXO1_RS_L2FC_summary.txt", delim = "\t")
+
+position2 <- c("Down", "Up")
+position3 <- c("1", "2", "3", "4")
+
+l2fc_summ_6 <- l2fc_summ %>% 
+  filter(Sample == "B_LY1_l2fc_6" | Sample == "A_Nud_l2fc_6" | Sample == "C_LY7_l2fc_6" | Sample == "D_DHL4_l2fc_6") %>%
+  filter(clustsimp != "NS")
+
+l2fc_summ_24 <- l2fc_summ %>% 
+  filter(Sample == "B_LY1_l2fc_24" | Sample == "A_Nud_l2fc_24" | Sample == "C_LY7_l2fc_24" | Sample == "D_DHL4_l2fc_24") %>%
+  filter(clustsimp != "NS")
+
+down_l2fc_6h__noly7 <- l2fc_summ_6 %>%
+  filter(clustsimp == "Down") %>%
+  filter(Sample !="C_LY7_l2fc_6")
+
+up_l2fc_6h__noly7 <- l2fc_summ_6 %>%
+  filter(clustsimp == "Up") %>%
+  filter(Sample != "C_LY7_l2fc_6")
+
+mRNA_wt_down_l2fc_6h__noly7 <- pairwise.wilcox.test(down_l2fc_6h__noly7$l2fc, down_l2fc_6h__noly7$Sample,
+                 p.adjust.method = "BH")
+print(mRNA_wt_down_l2fc_6h__noly7)
+
+mRNA_wt_up_l2fc_6h__noly7 <- pairwise.wilcox.test(up_l2fc_6h__noly7$l2fc, up_l2fc_6h__noly7$Sample,
+                 p.adjust.method = "BH")
+print(mRNA_wt_up_l2fc_6h__noly7)
+
+
+down_l2fc_24h__noly7 <- l2fc_summ_24 %>%
+  filter(clustsimp == "Down") %>%
+  filter(Sample != "C_LY7_l2fc_24")
+
+up_l2fc_24h__noly7 <- l2fc_summ_24 %>%
+  filter(clustsimp == "Up") %>%
+  filter(Sample != "C_LY7_l2fc_24")
+
+mRNA_wt_down_l2fc_24h__noly7 <- pairwise.wilcox.test(down_l2fc_24h__noly7$l2fc, down_l2fc_24h__noly7$Sample,
+                 p.adjust.method = "BH")
+print(mRNA_wt_down_l2fc_24h__noly7)
+
+mRNA_wt_up_l2fc_24h__noly7 <- pairwise.wilcox.test(up_l2fc_24h__noly7$l2fc, up_l2fc_24h__noly7$Sample,
+                 p.adjust.method = "BH")
+print(mRNA_wt_up_l2fc_24h__noly7)
+
+pal_noLY7 <- c("#4A4747", "#3E356B", "#49C1AD")
+
+bp_down_l2fc_6h_noLY7 <- ggplot(l2fc_summ_6 %>% filter( Sample != "C_LY7_l2fc_6"), aes(x = as.factor(clustsimp), y = l2fc, fill = Sample)) + 
+  geom_boxplot(outlier.colour = "black", outlier.shape = 16, outlier.size = 0.1, notch = FALSE, color = "black", position = position_dodge(0.8)) +
+  stat_boxplot(geom = 'errorbar', width = 0.2, position = position_dodge(0.8)) +
+  ggtitle("Log2 Fold Change 6h") +
+  ylab("L2FC") +
+  xlab("Gene Group") +
+  scale_y_continuous(breaks = seq(-6, 3, by = 3), expand = c(0, 0), limits = c(-6, 3)) +
+  scale_fill_manual(values = pal_noLY7) +
+  theme_hillary() +
+  scale_x_discrete(limits = position2) +
+  theme(plot.title = element_text(vjust = 2)) +
+  coord_cartesian(clip = "off") +
+  geom_hline(yintercept = -0.585, linetype = 2) +
+  geom_hline(yintercept = 0.585, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 1)
+bp_down_l2fc_6h_noLY7
+
+bp_down_l2fc_24h_noLY7 <- ggplot(l2fc_summ_24 %>% filter( Sample != "C_LY7_l2fc_24"), aes(x = as.factor(clustsimp), y = l2fc, fill = Sample)) + 
+  geom_boxplot(outlier.colour = "black", outlier.shape = 16, outlier.size = 0.1, notch = FALSE, color = "black", position = position_dodge(0.8)) +
+  stat_boxplot(geom = 'errorbar', width = 0.2, position = position_dodge(0.8)) +
+  ggtitle("Log2 Fold Change 6h") +
+  ylab("L2FC") +
+  xlab("Gene Group") +
+  scale_y_continuous(breaks = seq(-6, 3, by = 3), expand = c(0, 0), limits = c(-6, 3)) +
+  scale_fill_manual(values = pal_noLY7) +
+  theme_hillary() +
+  scale_x_discrete(limits = position2) +
+  theme(plot.title = element_text(vjust = 2)) +
+  coord_cartesian(clip = "off") +
+  geom_hline(yintercept = -0.585, linetype = 2) +
+  geom_hline(yintercept = 0.585, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 1)
+bp_down_l2fc_24h_noLY7
+```
+
+## Print to png
+```{r}
+svg <- function(title, plot) {
+    Cairo::Cairo(file = title, 
+             bg = "white",
+             type = "svg",
+             units = "in", 
+             width =25, 
+             height = 20, 
+             pointsize = 12, 
+             dpi = 300)
+plot
+}
+svg("20230615 NoLY7_l2fcbygenegroup_PSgenes_boxplot_6h_10x5.svg", bp_down_l2fc_6h_noLY7)
+dev.off()
+svg("20230615 NoLY7_l2fcbygenegroup_PSgenes_boxplot_24h_10x5.svg", bp_down_l2fc_24h_noLY7)
+dev.off()
+```
