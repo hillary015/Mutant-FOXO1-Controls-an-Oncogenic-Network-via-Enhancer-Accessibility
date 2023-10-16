@@ -83,14 +83,14 @@ annotatePeaks.pl 20230822_LY1_NUD_DHL4_allpeaks_merge.txt hg19 > 20230822_LY1_NU
 #        Done annotating peaks file
 ```
 ## Make pie charts
-## Load Libraries
+### Load Libraries
 ```{r}
 library(tidyverse)
 library(viridis)
 library(scales)
 ```
 
-## Load annotated peaks file (from Homer) and extract simplified annotations to column anno
+### Load annotated peaks file (from Homer) and extract simplified annotations to column anno
 ```{r}
 ATAC_all_annotation <- read.delim("20230623_DHL4_LY1_Nud_allpeaks_merge_annotate.txt")
 
@@ -105,7 +105,7 @@ ATAC_up_annotation <- read.delim("20230623_uppeaks_overlap_LY1_NUD_merge_bed_ann
 ATAC_up_annotation$anno = sapply(strsplit(x = as.character(ATAC_up_annotation$Annotation), split = ' (', fixed = T), '[[', 1)
 ```
 
-## Summarize annotations
+### Summarize annotations
 ```{r}
 anno_counts <- ATAC_all_annotation %>%
   group_by(anno) %>%
@@ -123,7 +123,7 @@ anno_counts_up <- ATAC_up_annotation %>%
   mutate(percent = round(((n/sum(n))*100), digits = 2))
 ```
 
-## Write to txt file
+### Write to txt file
 ```{r}
 write.table(anno_counts, file = "20230622_annotatepeaks_ATACchange_all_annotated_summary.txt", sep = "\t",
             row.names = FALSE, quote =FALSE)
@@ -135,7 +135,7 @@ write.table(anno_counts, file = "20230622_annotatepeaks_ATACchange_all_annotated
             row.names = FALSE, quote =FALSE)
 ```
 
-## Make pie chart for anno
+### Make pie chart for anno
 ```{r}
 pie <- ggplot(anno_counts, aes(x = "", y = n, fill = anno)) +
   ggtitle("ATAC all Peak Annotations") + 
@@ -183,7 +183,7 @@ pie_up <- ggplot(anno_counts_up, aes(x = "", y = n, fill = anno)) +
 pie_up
 ```
 
-## Write to PNG
+### Write to PNG
 ```{r}
 Cairo::Cairo(file="20230622_annotatepeaks_ATACchange_all_annotated_allanno.png", 
              bg="white",
@@ -219,7 +219,7 @@ pie_up
 dev.off()
 ```
 
-## Set all annotations besdies intergenic, intronic, and promoter to other 
+### Set all annotations besdies intergenic, intronic, and promoter to other 
 ```{r}
 Other <- c("3' UTR", "5' UTR", "exon", "non-coding", "TTS")
 
@@ -272,7 +272,7 @@ anno_counts_other_sum_up <- anno_counts_other_up %>%
   mutate(percent = round(((n/sum(n))*100), digits = 2))
 ```
 
-## Write to txt file
+### Write to txt file
 ```{r}
 write.table(anno_counts_other_sum, file = "20230622_annotatepeaks_ATACchange_all_annotated_summary_other.txt", sep = "\t",
             row.names = FALSE, quote =FALSE)
@@ -284,7 +284,7 @@ write.table(anno_counts_other_sum_up, file = "20230622_annotatepeaks_ATACchange_
             row.names = FALSE, quote =FALSE)
 ```
 
-## Make pie chart for anno
+### Make pie chart for anno
 ```{r}
 pie_other <- ggplot(anno_counts_other_sum, aes(x = "", y = n, fill = anno2)) +
   ggtitle("ATAC all Peak Annotations") + 
