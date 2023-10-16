@@ -82,6 +82,7 @@ annotatePeaks.pl 20230822_LY1_NUD_DHL4_allpeaks_merge.txt hg19 > 20230822_LY1_NU
 #        Outputing Annotation File...
 #        Done annotating peaks file
 ```
+## Make pie charts
 ## Load Libraries
 ```{r}
 library(tidyverse)
