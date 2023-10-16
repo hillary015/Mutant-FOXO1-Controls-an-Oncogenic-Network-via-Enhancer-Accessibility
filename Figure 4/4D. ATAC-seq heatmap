@@ -1,0 +1,125 @@
+# 4D. ATAC-seq heatmap
+The following code is an example of the code used to make heatmaps from ATAC-seq data
+
+## Load Libraries
+```{r}
+library(tidyverse)
+library(xlsx)
+library(hillaryscolors)
+library(ComplexHeatmap)
+library(circlize)
+library(viridis)
+library(factoextra)
+library(cluster)
+library(gridExtra)
+```
+
+## Load Files
+```{r}
+ATAC_mergedpeaks_down <- read.delim("20230622_downpeaks_overlap_LY1_NUDUL1_allpeaks_allcelllines_intersect.txt", header = FALSE)
+ATAC_mergedpeaks_up <- read.delim("20230622_uppeaks_overlap_LY1_NUDUL1_allpeaks_allcelllines_intersect.txt", header = FALSE)
+
+NUDUL1_ATAC <- read_delim("20230508 NUDUL1_FOXO1_FKBP_ATAC_deseqnorm_hg19chrMrm_15minv0hr.txt")
+LY1_ATAC <- read_delim("../Exp 0256_FOXO1_ATAC/20230621_LY1_FOXO1_FKBP_ATAC_hg19chrMrm_15v0hr_minus7.5_genrich.txt")
+DHL4_ATAC <- read_delim("9601-DHL4_ATAC_Genrichq0.05.summarizeoverlapsfalse.removeduplicatesfalse.removedBLwithDiffbind.summitsTRUE.normDESEQ_DMSOvs30mdT.txt") %>%
+  rename(chr = 1, start = 2, end = 3, norm_0hrB = 13, norm_0hrC = 14, norm_30minA = 15, norm_30minC = 16, norm_1hrA = 17, norm_1hrC = 18, norm_2hrA = 19, norm_2hrB = 20, norm_2hrC = 21)
+```
+
+## Process ATAC merged peaks
+#### ATAC peak files from above were intersected to create one file with coordinates, process to add Enhancer IDs for heatmap
+```{r}
+ATAC_down <- ATAC_mergedpeaks_down %>%
+  mutate(merged_ID = paste(V1, V2, V3, sep = "_")) %>%
+  mutate(tp_ID = paste(V5, V6, V7, sep = "_")) %>%
+  drop_na() %>%
+  pivot_wider(names_from = V4, values_from = tp_ID) %>%
+  select(merged_ID,  NUD = `20230623_NUDUL1_ATAC_deseqnorm_allpeaks_bed.txt`, LY1 = `20230623_LY1_ATAC_deseq_allpeaks_bed.txt`, DHL4 = `20230623_DHL4_ATAC_deseqnorm_allpeaks_bed.txt`)
+
+ATAC_up <- ATAC_mergedpeaks_up %>%
+  mutate(merged_ID = paste(V1, V2, V3, sep = "_")) %>%
+  mutate(tp_ID = paste(V5, V6, V7, sep = "_")) %>%
+  drop_na() %>%
+  pivot_wider(names_from = V4, values_from = tp_ID) %>%
+  select(merged_ID,  NUD = `20230623_NUDUL1_ATAC_deseqnorm_allpeaks_bed.txt`, LY1 = `20230623_LY1_ATAC_deseq_allpeaks_bed.txt`, DHL4 = `20230623_DHL4_ATAC_deseqnorm_allpeaks_bed.txt`)
+
+allsigATAC <- ATAC_down %>%
+  add_row(ATAC_up) %>%
+  rownames_to_column() %>%
+  group_by(merged_ID) %>% 
+  fill(NUD, .direction = "updown") %>%
+  fill(LY1, .direction = "updown") %>%
+  fill(DHL4, .direction = "updown") %>%
+  distinct() %>% 
+  slice(1) %>%
+  arrange(as.numeric(rowname))
+```
+
+## Combine counts tables with merged ATAC list
+```{r}
+NUDUL1_ATAC__adj <- NUDUL1_ATAC %>%
+  mutate(NUD = paste(chr, start, end, sep = "_")) %>%
+  select(NUD, norm_0hrA, norm_0hrB, norm_15minA, norm_15minB, norm_30minA, norm_30minB, norm_1hrA, norm_1hrB, norm_2hrA, norm_2hrB)
+
+LY1_ATAC__adj <- LY1_ATAC %>%
+  mutate(LY1 = paste(chr, start, end, sep = "_")) %>%
+  select(LY1, norm_0hrA, norm_0hrB, norm_15minA, norm_15minB, norm_30minA, norm_30minB, norm_1hrA, norm_1hrB, norm_2hrA, norm_2hrB)
+
+DHL4_ATAC__adj <- DHL4_ATAC %>%
+  mutate(DHL4 = paste(chr, start, end, sep = "_")) %>%
+  select(DHL4, norm_0hrB, norm_0hrC, norm_30minA, norm_30minC, norm_1hrA, norm_1hrC, norm_2hrA, norm_2hrB, norm_2hrC)
+
+allsigATAC_pluscounts <- allsigATAC %>%
+  left_join(NUDUL1_ATAC__adj, by = "NUD", suffix = c("_merged", "_NUD")) %>%
+  left_join(LY1_ATAC__adj, by = "LY1", suffix = c("_NUD", "_LY1")) %>%
+  left_join(DHL4_ATAC__adj, by = "DHL4", suffix = c("_LY1", "_DHL4")) %>%
+  mutate(NUD_15A_l2fc = log2(norm_15minA_NUD/(((norm_0hrA_NUD + norm_0hrB_NUD)/2)))) %>%
+  mutate(NUD_15B_l2fc = log2(norm_15minB_NUD/(((norm_0hrA_NUD + norm_0hrB_NUD)/2)))) %>%
+  mutate(NUD_30A_l2fc = log2(norm_30minA_NUD/(((norm_0hrA_NUD + norm_0hrB_NUD)/2)))) %>%
+  mutate(NUD_30B_l2fc = log2(norm_30minB_NUD/(((norm_0hrA_NUD + norm_0hrB_NUD)/2)))) %>%
+  mutate(NUD_1A_l2fc = log2(norm_1hrA_NUD/(((norm_0hrA_NUD + norm_0hrB_NUD)/2)))) %>%
+  mutate(NUD_1B_l2fc = log2(norm_1hrB_NUD/(((norm_0hrA_NUD + norm_0hrB_NUD)/2)))) %>%
+  mutate(NUD_2A_l2fc = log2(norm_2hrA_NUD/(((norm_0hrA_NUD + norm_0hrB_NUD)/2)))) %>%
+  mutate(NUD_2B_l2fc = log2(norm_2hrB_NUD/(((norm_0hrA_NUD + norm_0hrB_NUD)/2)))) %>%
+  mutate(LY1_15A_l2fc = log2(norm_15minA_LY1/(((norm_0hrA_LY1 + norm_0hrB_LY1)/2)))) %>%
+  mutate(LY1_15B_l2fc = log2(norm_15minB_LY1/(((norm_0hrA_LY1 + norm_0hrB_LY1)/2)))) %>%
+  mutate(LY1_30A_l2fc = log2(norm_30minA_LY1/(((norm_0hrA_LY1 + norm_0hrB_LY1)/2)))) %>%
+  mutate(LY1_30B_l2fc = log2(norm_30minB_LY1/(((norm_0hrA_LY1 + norm_0hrB_LY1)/2)))) %>%
+  mutate(LY1_1A_l2fc = log2(norm_1hrA_LY1/(((norm_0hrA_LY1 + norm_0hrB_LY1)/2)))) %>%
+  mutate(LY1_1B_l2fc = log2(norm_1hrB_LY1/(((norm_0hrA_LY1 + norm_0hrB_LY1)/2)))) %>%
+  mutate(LY1_2A_l2fc = log2(norm_2hrA_LY1/(((norm_0hrA_LY1 + norm_0hrB_LY1)/2)))) %>%
+  mutate(LY1_2B_l2fc = log2(norm_2hrB_LY1/(((norm_0hrA_LY1 + norm_0hrB_LY1)/2)))) %>%
+  mutate(DHL4_30A_l2fc = log2(norm_30minA/(((norm_0hrC + norm_0hrB)/2)))) %>%
+  mutate(DHL4_30C_l2fc = log2(norm_30minC/(((norm_0hrC + norm_0hrB)/2)))) %>%
+  mutate(DHL4_1A_l2fc = log2(norm_1hrA/(((norm_0hrC + norm_0hrB)/2)))) %>%
+  mutate(DHL4_1CB_l2fc = log2(norm_1hrC/(((norm_0hrC + norm_0hrB)/2)))) %>%
+  mutate(DHL4_2A_l2fc = log2(norm_2hrA/(((norm_0hrC + norm_0hrB)/2)))) %>%
+  mutate(DHL4_2B_l2fc = log2(norm_2hrB/(((norm_0hrC + norm_0hrB)/2)))) %>%
+  mutate(DHL4_2C_l2fc = log2(norm_2hrC/(((norm_0hrC + norm_0hrB)/2)))) %>%
+  dplyr::mutate_all(~replace(., is.infinite(.), 0)) %>%
+  dplyr::mutate_all(~replace(., is.na(.), 0)) %>%
+  ungroup()
+```
+
+## Make rough heatmap
+```{r}
+rnames = allsigATAC_pluscounts$merged_ID
+mat_data = data.matrix(allsigATAC_pluscounts[ , 35:57])
+rownames(mat_data) = rnames
+my_palette = colorRamp2(c(-1, 0, 1), c("#053061", "#f5f5f5", "#70000C"))
+
+sigATAC_L2FC <- Heatmap(mat_data, col = my_palette, column_title = "ATAC-seq LY1_NUD", cluster_columns = FALSE, cluster_rows = FALSE, show_row_names = TRUE, show_column_names = TRUE, row_names_gp = gpar(fontsize = 6))
+sigATAC_L2FC
+
+Cairo::Cairo(file="20230622_ATACseq_NUD_LY1_DHL4_l2fc_NUD_LY1_overlalp__colpal1_5x10.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=10,
+             pointsize=12, 
+             dpi=300)
+sigATAC_L2FC
+dev.off()
+```
+
+##END##
