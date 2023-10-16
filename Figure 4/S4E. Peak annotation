@@ -82,3 +82,287 @@ annotatePeaks.pl 20230822_LY1_NUD_DHL4_allpeaks_merge.txt hg19 > 20230822_LY1_NU
 #        Outputing Annotation File...
 #        Done annotating peaks file
 ```
+## Load Libraries
+```{r}
+library(tidyverse)
+library(viridis)
+library(scales)
+```
+
+## Load annotated peaks file (from Homer) and extract simplified annotations to column anno
+```{r}
+ATAC_all_annotation <- read.delim("20230623_DHL4_LY1_Nud_allpeaks_merge_annotate.txt")
+
+ATAC_all_annotation$anno = sapply(strsplit(x = as.character(ATAC_all_annotation$Annotation), split = ' (', fixed = T), '[[', 1)
+
+ATAC_down_annotation <- read.delim("20230622_downpeaks_overlap_LY1_NUD_merge_bed_annotate.txt")
+
+ATAC_down_annotation$anno = sapply(strsplit(x = as.character(ATAC_down_annotation$Annotation), split = ' (', fixed = T), '[[', 1)
+
+ATAC_up_annotation <- read.delim("20230623_uppeaks_overlap_LY1_NUD_merge_bed_annotate.txt")
+
+ATAC_up_annotation$anno = sapply(strsplit(x = as.character(ATAC_up_annotation$Annotation), split = ' (', fixed = T), '[[', 1)
+```
+
+## Summarize annotations
+```{r}
+anno_counts <- ATAC_all_annotation %>%
+  group_by(anno) %>%
+  summarise(n = n()) %>%
+  mutate(percent = round(((n/sum(n))*100), digits = 2))
+
+anno_counts_down <- ATAC_down_annotation %>%
+  group_by(anno) %>%
+  summarise(n = n()) %>%
+  mutate(percent = round(((n/sum(n))*100), digits = 2))
+
+anno_counts_up <- ATAC_up_annotation %>%
+  group_by(anno) %>%
+  summarise(n = n()) %>%
+  mutate(percent = round(((n/sum(n))*100), digits = 2))
+```
+
+## Write to txt file
+```{r}
+write.table(anno_counts, file = "20230622_annotatepeaks_ATACchange_all_annotated_summary.txt", sep = "\t",
+            row.names = FALSE, quote =FALSE)
+
+write.table(anno_counts_down, file = "20230622_annotatepeaks_ATACchange_down_annotated_summary.txt", sep = "\t",
+            row.names = FALSE, quote =FALSE)
+
+write.table(anno_counts, file = "20230622_annotatepeaks_ATACchange_all_annotated_summary.txt", sep = "\t",
+            row.names = FALSE, quote =FALSE)
+```
+
+## Make pie chart for anno
+```{r}
+pie <- ggplot(anno_counts, aes(x = "", y = n, fill = anno)) +
+  ggtitle("ATAC all Peak Annotations") + 
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12, face = "bold")) +
+  scale_fill_manual(values = viridis(8))
+pie
+
+piedown <- ggplot(anno_counts_down, aes(x = "", y = n, fill = anno)) +
+  ggtitle("ATAC down Peak Annotations") + 
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12, face = "bold")) +
+  scale_fill_manual(values = viridis(8))
+piedown
+
+pie_up <- ggplot(anno_counts_up, aes(x = "", y = n, fill = anno)) +
+  ggtitle("ATAC UP Peak Annotations") + 
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12, face = "bold")) +
+  scale_fill_manual(values = viridis(8))
+pie_up
+```
+
+## Write to PNG
+```{r}
+Cairo::Cairo(file="20230622_annotatepeaks_ATACchange_all_annotated_allanno.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+pie
+dev.off()
+
+Cairo::Cairo(file="20230622_annotatepeaks_ATACchange_down_annotated_allanno.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+piedown
+dev.off()
+
+Cairo::Cairo(file="20230622_annotatepeaks_ATACchange_up__annotated_allanno.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+pie_up
+dev.off()
+```
+
+## Set all annotations besdies intergenic, intronic, and promoter to other 
+```{r}
+Other <- c("3' UTR", "5' UTR", "exon", "non-coding", "TTS")
+
+anno_counts_other <- ATAC_all_annotation
+anno_counts_other$anno2 <- sapply(anno_counts_other$anno, switch,
+                  "3' UTR" = "Other", 
+                  "5' UTR" = "Other", 
+                  "exon" = "Other",
+                  "Intergenic" = "Intergenic",
+                  "intron" = "Intronic",
+                  "non-coding" = "Other",
+                  "promoter-TSS"	= "Promoter",
+                  "TTS" = "Other")
+
+anno_counts_other_sum <- anno_counts_other %>%
+  group_by(anno2) %>%  
+  summarise(n = n()) %>%
+  mutate(percent = round(((n/sum(n))*100), digits = 2))
+
+anno_counts_other_down <- ATAC_down_annotation
+anno_counts_other_down$anno2 <- sapply(anno_counts_other_down$anno, switch,
+                  "3' UTR" = "Other", 
+                  "5' UTR" = "Other", 
+                  "exon" = "Other",
+                  "Intergenic" = "Intergenic",
+                  "intron" = "Intronic",
+                  "non-coding" = "Other",
+                  "promoter-TSS"	= "Promoter",
+                  "TTS" = "Other")
+
+anno_counts_other_sumdown <- anno_counts_other_down %>%
+  group_by(anno2) %>%  
+  summarise(n = n()) %>%
+  mutate(percent = round(((n/sum(n))*100), digits = 2))
+
+anno_counts_other_up <- ATAC_up_annotation
+anno_counts_other_up$anno2 <- sapply(anno_counts_other_up$anno, switch,
+                  "3' UTR" = "Other", 
+                  "5' UTR" = "Other", 
+                  "exon" = "Other",
+                  "Intergenic" = "Intergenic",
+                  "intron" = "Intronic",
+                  "non-coding" = "Other",
+                  "promoter-TSS"	= "Promoter",
+                  "TTS" = "Other")
+
+anno_counts_other_sum_up <- anno_counts_other_up %>%
+  group_by(anno2) %>%  
+  summarise(n = n()) %>%
+  mutate(percent = round(((n/sum(n))*100), digits = 2))
+```
+
+## Write to txt file
+```{r}
+write.table(anno_counts_other_sum, file = "20230622_annotatepeaks_ATACchange_all_annotated_summary_other.txt", sep = "\t",
+            row.names = FALSE, quote =FALSE)
+
+write.table(anno_counts_other_sumdown, file = "20230622_annotatepeaks_ATACchange_down_annotated_summary_other.txt", sep = "\t",
+            row.names = FALSE, quote =FALSE)
+
+write.table(anno_counts_other_sum_up, file = "20230622_annotatepeaks_ATACchange_up_annotated_summary_other.txt", sep = "\t",
+            row.names = FALSE, quote =FALSE)
+```
+
+## Make pie chart for anno
+```{r}
+pie_other <- ggplot(anno_counts_other_sum, aes(x = "", y = n, fill = anno2)) +
+  ggtitle("ATAC all Peak Annotations") + 
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12, face = "bold")) +
+  scale_fill_manual(values = viridis(5))
+pie_other
+
+pie_otherdown <- ggplot(anno_counts_other_sumdown, aes(x = "", y = n, fill = anno2)) +
+  ggtitle("ATAC down Peak Annotations") + 
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12, face = "bold")) +
+  scale_fill_manual(values = viridis(5))
+pie_otherdown
+
+pie_other_up <- ggplot(anno_counts_other_sum_up, aes(x = "", y = n, fill = anno2)) +
+  ggtitle("ATAC up Peak Annotations") + 
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12, face = "bold")) +
+  scale_fill_manual(values = viridis(5))
+pie_other_up
+```
+
+```{r}
+Cairo::Cairo(file="20230622_annotatepeaks_ATACchange_all_annotated_annoother.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+pie_other
+dev.off()
+
+Cairo::Cairo(file="20230622_annotatepeaks_ATACchange_down_annotated_annoother.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+pie_otherdown
+dev.off()
+
+Cairo::Cairo(file="20230622_annotatepeaks_ATACchange_up_annotated_annoother.png", 
+             bg="white",
+             type="png",
+             units="in", 
+             width=5, 
+             height=5, 
+             pointsize=12, 
+             dpi=300)
+pie_other_up
+dev.off()
+```
+
