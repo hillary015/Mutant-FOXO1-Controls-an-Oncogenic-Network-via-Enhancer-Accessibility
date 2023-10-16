@@ -1,5 +1,5 @@
-# 4A S4A ATAC MA Plots
-The following code was used to generate MA plots from ATAC-seq data.
+# 4A_S4A. ATAC MA Plots
+The following code is an example of the code used to generate MA plots from ATAC-seq data.
 
 ##Load libraries
 ```{r}
