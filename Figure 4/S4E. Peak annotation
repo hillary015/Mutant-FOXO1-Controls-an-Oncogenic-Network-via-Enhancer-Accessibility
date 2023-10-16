@@ -1,5 +1,5 @@
 # 4SE. Peak annotation
-The follwoing code is an example of the code used to annotate ATAC-seq peaks to the nearest genomic feature.
+The following code is an example of the code used to annotate ATAC-seq peaks to the nearest genomic feature.
 
 ```
 annotatePeaks.pl 20230822_LY1_NUD_DHL4_allpeaks_merge.txt hg19 > 20230822_LY1_NUD_DHL4_allpeaks_merge_annotate.txt
