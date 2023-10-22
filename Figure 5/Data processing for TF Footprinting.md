@@ -28,3 +28,11 @@ Corrected bigwig files were scored using TOBIAS in bash.
 TOBIAS ScoreBigwig --signal ${PROCESSED_DIR}/DHL4_ATAC_${i}/DHL4_ATAC_${i}_merged_sorted_corrected.bw --regions ${PEAK_DIR}/DHL4_consensuspeaks.bed.txt \
     --output ${PROCESSED_DIR}/DHL4_ATAC_${i}_footprints.bw --cores 8
 ```
+## BINDetect
+Bound and unbound TF motifs within consensus ATAC peaks were identified and differential analysis was performed using TOBIAS in bash.
+```
+TOBIAS BINDetect --motifs  ${PEAK_DIR}/coremotifs_jaspar_plusDIV2.txt\
+        --signals ${PROCESSED_DIR}/DHL4_ATAC_0h_footprints.bw ${PROCESSED_DIR}/DHL4_ATAC_${i}_footprints.bw \
+        --genome ${GENOME_DIR}/hg19/hg19.fa --peaks ${PEAK_DIR}/DHL4_consensuspeaks.bed.txt  --outdir ${PROCESSED_DIR}/motifs_DHL4_${i}vs0h \
+        --cond_names 0hr ${i} --cores 8
+```
