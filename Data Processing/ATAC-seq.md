@@ -137,7 +137,7 @@ Peaks were called in using Genrich in conda.
 ```
 Genrich -t /Volumes/Hillary_3/9330-subset/9330-HL-0001_S1_L005.hg19dm3.F4q10.sorted.chrMrm.namesorted.bam,/Volumes/Hillary_3/9330-subset/9330-HL-0002_S1_L005.hg19dm3.F4q10.sorted.chrMrm.namesorted.bam -j -r -E /Volumes/Hillary_3/genomes/hg19_blacklist/hg19.blacklistpeaks.bed -q 0.05 -o 9330-0hr_genrich.j.r.Eblacklist.q0.05.narrowPeak
 ```
-## Quantification of reads and differential expression analyisis
+## Quantification of reads and differential expression analysis
 A consensus peakset was defined using DiffBind in R. Reads within the peaks defined in the consensus peakset were quantified with DiffBind in R. Counts were normalized and differential expression analysis was performed with DESeq2 in R.
 ```
 ## Project Description:
