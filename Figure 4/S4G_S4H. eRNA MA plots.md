@@ -1,4 +1,4 @@
-# S4F_S4F eRNA MA plot
+# S4G_S4H eRNA MA plot
 The following code is an example of the code used to make MA plots for intergenic RNA from PRO-seq data
 
 ## Load libraries
